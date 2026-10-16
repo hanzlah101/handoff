@@ -13,6 +13,7 @@ export const env = createEnv({
   },
   server: {
     CLERK_SECRET_KEY: z.string().startsWith("sk_"),
+    DATABASE_URL: z.url({ protocol: /^postgres(?:ql)?$/u }),
   },
   shared: {
     NODE_ENV: z

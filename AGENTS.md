@@ -21,6 +21,11 @@ bun run build
 bun run lint        # ultracite: oxlint (type-aware) + oxfmt format check
 bun run format      # ultracite: auto-fix lint + format
 bun run typecheck   # next typegen + tsc --noEmit
+bun run db:up       # start local Postgres 18 (compose.yaml, localhost:5432) and wait until healthy
+bun run db:down     # stop it (data stays in the postgres-data volume)
+bun run db:generate # SQL migration in drizzle/ from schema changes (--name <what>)
+bun run db:migrate  # apply pending migrations to DATABASE_URL
+bun run db:studio   # browse data
 ```
 
 Run `bun run format && bun run lint && bun run typecheck` before finishing any task. Use bun for everything (no npm, pnpm or yarn; `bun.lock` is the only lockfile).
@@ -125,9 +130,17 @@ src/
 - **Client-importable server files:** only `src/server/**/*.schemas.ts` and `*.errors.ts` (and `server/errors.ts`). `server/orpc.ts`, `server/handlers.ts` and `lib/orpc.server.ts` import `server-only`, so pulling them into a Client Component fails the build.
 - **Docs** (non-production): `/api/docs` (Scalar), `/api/spec.json` (OpenAPI), generated from the router. The docs page itself is public; calls made from it still need a session.
 
-## Database types
+## Database
 
-Derive database types from the Drizzle schema — never hand-write custom or partial shapes for table rows. Export `typeof table.$inferSelect` (and `$inferInsert` when needed) from the schema file and import it. When a consumer needs only some columns, narrow with `Pick<Row, ...>` / `Omit<Row, ...>` rather than redeclaring a literal type. Don't add an insert type where `db.insert(...).values()` already enforces the shape. Use `db.select()/insert()/update()/delete()`, never `db.query.*`.
+Postgres 18 via **Drizzle** (`drizzle-orm/postgres-js`). Locally it runs in Docker (`compose.yaml`, image `postgres:18.2-alpine3.23`, localhost:5432); the URL in `.env.example` points at it. Schema in `src/server/db/schema.ts`, client in `src/server/db/client.ts` (`db`, `server-only`; only server modules' `*.service.ts` import it). Migrations are generated into `drizzle/` and committed; never edit a generated migration, change the schema and generate a new one. Product context for the tables: `docs/plan.md` §5.
+
+- Tables: `projects` → `workflows` (`graph` jsonb: `WorkflowGraph`) → `runs` (`id` is the Trigger.dev run id; `status` is the `run_status` enum; `steps` jsonb: `RunStep[]`, written when the run ends). Deleting a project cascades to its workflows and their runs.
+- Every table has `user_id` (the Clerk user id). Every query filters by it (`context.auth.userId`), and a row owned by someone else is treated as not found.
+- At most one active run (`queued`, `running`, `waiting`) per workflow, enforced by the partial unique index `runs_one_active_per_workflow_idx`; map its violation to the module's `CONFLICT`-status error.
+- `updated_at` columns update themselves on Drizzle updates (`$onUpdate`); timestamps are `timestamptz`.
+- Columns stay in table order (lint's `sort-keys` is off for the schema file only).
+- Derive row types from the schema (`Project`, `Workflow`, `Run`, or `typeof table.$inferSelect` / `$inferInsert`); narrow with `Pick`/`Omit` rather than redeclaring shapes. Don't add an insert type where `db.insert(...).values()` already enforces the shape.
+- Use `db.select()/insert()/update()/delete()`, never `db.query.*`.
 
 ## Browserbase observability
 

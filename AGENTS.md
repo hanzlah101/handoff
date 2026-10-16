@@ -52,6 +52,25 @@ shadcn `aria-nova` style: components are built on **React Aria Components** (`re
 
 The mark is two cursors passing control: the AI's in white, the human's in amber (`#e9b452`), on a cobalt tile (`#2f6be0` → `#1043a8`). `src/app/icon.svg` is the source; `LogoMark` (`src/components/logo.tsx`) is the same drawing for the UI. The raster icons are rendered from `icon.svg` (keep them in sync when it changes): `src/app/favicon.ico` (16/32/48), `src/app/apple-icon.png` (180, square, iOS rounds it), `public/icon-192.png` and `public/icon-512.png` (used by `src/app/manifest.ts`).
 
+## Environment
+
+Variables are validated with `@t3-oss/env-nextjs` + Zod in `src/env.ts`; import `env` from `@/env`, never read `process.env` directly. `next.config.ts` imports `src/env.ts`, so a missing or malformed variable fails `next dev` / `next build` at startup. Every variable is listed in `.env.example` (committed); real values go in `.env.local` (gitignored). Add a new variable to all three: the schema, `experimental__runtimeEnv` for `NEXT_PUBLIC_*` ones, and `.env.example`.
+
+## Auth
+
+Clerk (`@clerk/nextjs`, Core 3) with custom screens; Clerk's prebuilt `<SignIn />`/`<SignUp />` aren't used.
+
+- Methods: Google, GitHub, and email + password (sign-up verified by an emailed code). No organizations. Set in the Clerk Dashboard (or `clerk config patch` once the app is claimed).
+- Screens (all in `src/app/(auth)/`, sharing the split layout: artwork `figure` on the left, hidden below `lg`; `Logo` + content on the right):
+  - `/sign-in` → `src/components/auth/sign-in-form.tsx`: OAuth buttons, email + password, "Forgot password?" beside the password label, then an emailed code if Clerk asks to trust the device (`needs_client_trust` / `needs_second_factor` → `signIn.mfa`).
+  - `/sign-up` → `sign-up-form.tsx`: OAuth buttons, email + password, then the email verification code.
+  - `/forgot-password` → `forgot-password-form.tsx`: email → reset code → new password (`signIn.resetPasswordEmailCode`, other sessions signed out), then the same device check as sign-in.
+  - Each screen is an `AuthStep` (`auth-step.tsx`: heading, form, and a centred footer linking to the other flow via `AuthLink`). Code inputs use `CodeField`; fields use `src/components/ui/form.tsx` with the signal hooks' `errors.fields.*`, `errors.global` and `fetchStatus`.
+- OAuth: `OAuthButtons` (`oauth-buttons.tsx`) starts Google/GitHub with `signIn.sso()` from both screens (Clerk turns it into a sign-up for new accounts). Brand icons live in `src/components/icons/` (one file each, wrapping `react-icons`): `GoogleIcon` is the colour "G" (`FcGoogle`), `GitHubIcon` the one-colour mark (`FaGithub`, follows the text colour as GitHub's brand asks). Add new brand icons there the same way. Providers return to `src/app/sso-callback/page.tsx` (`<HandleSSOCallback />`); a failed return goes back to `/sign-in` or `/sign-up`, whose form shows the error from `errors.global`.
+- Every finished flow calls `finalize({ navigate: navigateHome })` (`src/lib/auth.ts`).
+- Access: `/` is public; `/sign-in`, `/sign-up`, `/forgot-password` and `/sso-callback` are for signed-out visitors only (`src/proxy.ts` redirects signed-in users to `/`); everything else is signed-in only. That last rule is enforced per resource, not in the proxy (Clerk deprecated `createRouteMatcher`): every page, layout, route handler and server action outside the public folders starts with `await auth.protect()` (from `@clerk/nextjs/server`). The `@clerk/next/require-auth-protection` lint rule (`oxlint.config.mts`) fails `bun run lint` when one doesn't; new public folders go in its `public` list.
+- `ClerkProvider` (in `src/app/layout.tsx`) uses the shadcn theme from `@clerk/ui`, so `UserButton` and other Clerk widgets match the palette.
+
 ## Database types
 
 Derive database types from the Drizzle schema — never hand-write custom or partial shapes for table rows. Export `typeof table.$inferSelect` (and `$inferInsert` when needed) from the schema file and import it. When a consumer needs only some columns, narrow with `Pick<Row, ...>` / `Omit<Row, ...>` rather than redeclaring a literal type. Don't add an insert type where `db.insert(...).values()` already enforces the shape. Use `db.select()/insert()/update()/delete()`, never `db.query.*`.

@@ -1,7 +1,11 @@
-import "@/app/globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
+import { shadcn } from "@clerk/ui/themes";
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
+
+import "@/app/globals.css";
+import { env } from "@/env";
 
 const bricolageGrotesque = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -15,7 +19,7 @@ const figtree = Figtree({
 
 export const metadata: Metadata = {
   description: "Browser automations that know when to ask a human.",
-  title: "Handoff",
+  title: { default: "Handoff", template: "%s · Handoff" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -26,9 +30,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body>
-        <ThemeProvider attribute="class" disableTransitionOnChange>
-          {children}
-        </ThemeProvider>
+        <ClerkProvider
+          afterSignOutUrl="/"
+          appearance={{ theme: shadcn }}
+          publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+        >
+          <ThemeProvider attribute="class" disableTransitionOnChange>
+            {children}
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

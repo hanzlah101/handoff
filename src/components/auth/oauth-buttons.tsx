@@ -1,6 +1,6 @@
 "use client";
 
-import { useSignIn } from "@clerk/nextjs";
+import { useClerk, useSignIn, useSignUp } from "@clerk/nextjs";
 import type { OAuthStrategy } from "@clerk/nextjs/types";
 import { IconAlertCircleFilled } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -25,9 +25,16 @@ const PROVIDERS = [
 // is the screen to come back to if the provider fails or the user cancels
 // (see src/app/sso-callback/page.tsx).
 export function OAuthButtons({ from }: { from: "sign-in" | "sign-up" }) {
-  const { signIn } = useSignIn();
+  const clerk = useClerk();
+  const { fetchStatus: signInStatus, signIn } = useSignIn();
+  const { fetchStatus: signUpStatus } = useSignUp();
   const [pending, setPending] = useState<OAuthStrategy | null>(null);
-  const [error, setError] = useState(peekOAuthFailure);
+  const [failure, setFailure] = useState(peekOAuthFailure);
+
+  // Busy with something else on the page (the email form): disabled only.
+  const isOtherPending =
+    pending === null &&
+    (signInStatus === "fetching" || signUpStatus === "fetching");
 
   // Back from a cancelled or failed provider: show why once. Read here,
   // cleared in the effect, so StrictMode's double render still sees it.
@@ -35,28 +42,68 @@ export function OAuthButtons({ from }: { from: "sign-in" | "sign-up" }) {
     clearOAuthFailure();
   }, []);
 
+  // Back via the back-forward cache (Safari keeps the page as it was) while a
+  // redirect was under way: the button would spin forever.
+  useEffect(() => {
+    function onPageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setPending(null);
+      }
+    }
+
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, []);
+
+  // sso() only starts a new attempt when there is none (or the current one is
+  // already an OAuth redirect); with an unfinished one left over (an email
+  // sign-in or password reset abandoned halfway; Clerk keeps it across
+  // reloads) it resolves without error and without redirecting. So start
+  // fresh: reset() swaps in a new attempt, read from the client because this
+  // render's `signIn` still points at the old one.
+  async function freshSignIn() {
+    if (signIn.id === undefined) {
+      return signIn;
+    }
+
+    await signIn.reset();
+    return clerk.client?.signIn.__internal_future ?? signIn;
+  }
+
   async function continueWith(strategy: OAuthStrategy) {
     setPending(strategy);
-    setError(null);
+    setFailure(null);
 
-    const result = await signIn.sso({
-      redirectCallbackUrl: `/sso-callback?from=${from}`,
-      redirectUrl: "/",
-      strategy,
-    });
+    try {
+      const attempt = await freshSignIn();
+      const result = await attempt.sso({
+        redirectCallbackUrl: `/sso-callback?from=${from}`,
+        redirectUrl: "/projects",
+        strategy,
+      });
 
-    if (result.error !== null) {
+      if (result.error !== null) {
+        setPending(null);
+        setFailure(result.error.message);
+      }
+    } catch (error) {
       setPending(null);
-      setError(result.error.message);
+      setFailure(
+        error instanceof Error
+          ? error.message
+          : "Couldn't start signing in. Try again."
+      );
     }
   }
 
   return (
     <div className="flex flex-col gap-5">
-      {error === null ? null : (
+      {failure === null ? null : (
         <Alert variant="destructive">
           <IconAlertCircleFilled />
-          <AlertTitle>{error}</AlertTitle>
+          <AlertTitle>{failure}</AlertTitle>
         </Alert>
       )}
 
@@ -64,7 +111,9 @@ export function OAuthButtons({ from }: { from: "sign-in" | "sign-up" }) {
         {PROVIDERS.map(({ icon: Icon, label, strategy }) => (
           <Button
             key={strategy}
-            isDisabled={pending !== null && pending !== strategy}
+            isDisabled={
+              isOtherPending || (pending !== null && pending !== strategy)
+            }
             isLoading={pending === strategy}
             onPress={() => {
               void continueWith(strategy);

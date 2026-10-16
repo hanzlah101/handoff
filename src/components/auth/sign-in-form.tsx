@@ -144,7 +144,7 @@ export function SignInForm() {
       title="Welcome back"
     >
       <div className="flex flex-col gap-5">
-        <OAuthButtons />
+        <OAuthButtons from="sign-in" />
 
         <Form
           className="flex flex-col gap-5"

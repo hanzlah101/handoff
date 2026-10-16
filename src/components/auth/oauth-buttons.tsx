@@ -3,13 +3,14 @@
 import { useSignIn } from "@clerk/nextjs";
 import type { OAuthStrategy } from "@clerk/nextjs/types";
 import { IconAlertCircleFilled } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { IconType } from "react-icons";
 
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { GoogleIcon } from "@/components/icons/google-icon";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { clearOAuthFailure, peekOAuthFailure } from "@/lib/auth";
 
 const PROVIDERS = [
   { icon: GoogleIcon, label: "Google", strategy: "oauth_google" },
@@ -20,18 +21,26 @@ const PROVIDERS = [
   strategy: OAuthStrategy;
 }[];
 
-// Signs in or signs up: Clerk creates the account on a first visit.
-export function OAuthButtons() {
+// Signs in or signs up: Clerk creates the account on a first visit. `from`
+// is the screen to come back to if the provider fails or the user cancels
+// (see src/app/sso-callback/page.tsx).
+export function OAuthButtons({ from }: { from: "sign-in" | "sign-up" }) {
   const { signIn } = useSignIn();
   const [pending, setPending] = useState<OAuthStrategy | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(peekOAuthFailure);
+
+  // Back from a cancelled or failed provider: show why once. Read here,
+  // cleared in the effect, so StrictMode's double render still sees it.
+  useEffect(() => {
+    clearOAuthFailure();
+  }, []);
 
   async function continueWith(strategy: OAuthStrategy) {
     setPending(strategy);
     setError(null);
 
     const result = await signIn.sso({
-      redirectCallbackUrl: "/sso-callback",
+      redirectCallbackUrl: `/sso-callback?from=${from}`,
       redirectUrl: "/",
       strategy,
     });

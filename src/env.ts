@@ -9,8 +9,14 @@ export const env = createEnv({
   experimental__runtimeEnv: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    NODE_ENV: process.env.NODE_ENV,
   },
   server: {
     CLERK_SECRET_KEY: z.string().startsWith("sk_"),
+  },
+  shared: {
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
   },
 });

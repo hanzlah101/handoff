@@ -6,7 +6,8 @@ import shadcn from "ultracite/oxlint/shadcn";
 
 export default defineConfig({
   extends: [core, react, next, shadcn],
-  ignorePatterns: core.ignorePatterns,
+  // Agent skills are vendor files, replaced by `bunx skills update`.
+  ignorePatterns: [...(core.ignorePatterns ?? []), ".agents/**", ".claude/**"],
   jsPlugins: [
     ...shadcn.jsPlugins,
     { name: "@clerk/next", specifier: "@clerk/eslint-plugin/next" },

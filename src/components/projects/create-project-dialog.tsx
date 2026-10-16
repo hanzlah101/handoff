@@ -4,7 +4,7 @@ import { useState } from "react";
 import type * as React from "react";
 import { Form } from "react-aria-components";
 
-import { useCreateProject } from "@/components/projects/use-create-project";
+import { useCreateProject } from "@/components/projects/use-project-mutations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -74,6 +74,7 @@ export function CreateProjectDialog({
           validationBehavior="aria"
         >
           <FormField
+            autoComplete="off"
             autoFocus
             isInvalid={error !== undefined}
             maxLength={PROJECT_NAME_MAX_LENGTH}

@@ -160,13 +160,19 @@ Session recordings, replays, live view, and logs come from the core Browserbase 
 
 Session replay specifically — retrieving a session's recording as an HLS playlist — is documented here: https://docs.browserbase.com/platform/browser/observability/session-replay The retrieval needs the secret API key, so it must be proxied server-side. The same goes for the live view URL used for human takeover.
 
-<!-- TRIGGER.DEV SKILLS START -->
+## Agent skills
 
-## Trigger.dev agent skills
+Official vendor skills live in `.agents/skills/` (symlinked into `.claude/skills/` for Claude Code; Codex reads `.agents/skills/` directly), pinned in `skills-lock.json`. Load the matching skill before working on that platform's code:
 
-This project has Trigger.dev agent skills installed in `.agents/skills/`. Before writing or changing Trigger.dev code (background tasks, scheduled tasks, realtime, or chat.agent AI agents), load the most relevant skill: `trigger-authoring-chat-agent`, `trigger-authoring-tasks`, `trigger-chat-agent-advanced`, `trigger-cost-savings`, `trigger-getting-started`, `trigger-realtime-and-frontend`.
+| Platform | Skills |
+| --- | --- |
+| Clerk (`clerk/skills`) | `clerk` (router), `clerk-setup`, `clerk-nextjs-patterns`, `clerk-custom-ui` (the custom sign-in/up screens), `clerk-cli`, `clerk-backend-api`, `clerk-testing` |
+| Trigger.dev (`triggerdotdev/skills`) | `trigger-setup` (first-time setup), `trigger-tasks` (the run task, waits, wait tokens, metadata), `trigger-realtime` (live run status, public tokens, approval UIs), `trigger-cost-savings`, `trigger-authoring-chat-agent`, `trigger-chat-agent-advanced` |
+| Resend (`resend/resend-skills`) | `resend` (SDK, sending), `resend-cli`, `email-best-practices` |
+| Browserbase (`browserbase/stagehand`) | `browse` (Browserbase sessions, cloud APIs, debugging a browser from the CLI). For the Stagehand SDK itself, follow the Stagehand section below |
 
-<!-- TRIGGER.DEV SKILLS END -->
+- Update: `bunx skills update -p -y`. Restore from the lock: `bunx skills experimental_install`. Add one: `bunx skills add <owner/repo> -a claude-code -a codex -s <skill> -y`.
+- The skill folders are vendor files: lint and format skip `.agents/` and `.claude/`; don't edit them (an update overwrites changes).
 
 # Stagehand Project
 

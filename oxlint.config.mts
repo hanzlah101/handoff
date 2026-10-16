@@ -44,6 +44,11 @@ export default defineConfig({
       ],
       rules: { "no-restricted-imports": "off" },
     },
+    {
+      // Columns stay in table order, not alphabetical.
+      files: ["src/server/db/schema.ts"],
+      rules: { "sort-keys": "off" },
+    },
   ],
   rules: {
     // Every page, layout, route handler and server action checks auth

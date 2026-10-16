@@ -66,10 +66,64 @@ Clerk (`@clerk/nextjs`, Core 3) with custom screens; Clerk's prebuilt `<SignIn /
   - `/sign-up` → `sign-up-form.tsx`: OAuth buttons, email + password, then the email verification code.
   - `/forgot-password` → `forgot-password-form.tsx`: email → reset code → new password (`signIn.resetPasswordEmailCode`, other sessions signed out), then the same device check as sign-in.
   - Each screen is an `AuthStep` (`auth-step.tsx`: heading, form, and a centred footer linking to the other flow via `AuthLink`). Code inputs use `CodeField`; fields use `src/components/ui/form.tsx` with the signal hooks' `errors.fields.*`, `errors.global` and `fetchStatus`.
-- OAuth: `OAuthButtons` (`oauth-buttons.tsx`) starts Google/GitHub with `signIn.sso()` from both screens (Clerk turns it into a sign-up for new accounts). Brand icons live in `src/components/icons/` (one file each, wrapping `react-icons`): `GoogleIcon` is the colour "G" (`FcGoogle`), `GitHubIcon` the one-colour mark (`FaGithub`, follows the text colour as GitHub's brand asks). Add new brand icons there the same way. Providers return to `src/app/sso-callback/page.tsx` (`<HandleSSOCallback />`); a failed return goes back to `/sign-in` or `/sign-up`, whose form shows the error from `errors.global`.
+- OAuth: `OAuthButtons` (`oauth-buttons.tsx`) starts Google/GitHub with `signIn.sso()` from both screens (Clerk turns it into a sign-up for new accounts). Brand icons live in `src/components/icons/` (one file each, wrapping `react-icons`): `GoogleIcon` is the colour "G" (`FcGoogle`), `GitHubIcon` the one-colour mark (`FaGithub`, follows the text colour as GitHub's brand asks). Add new brand icons there the same way. Providers return to `src/app/sso-callback/page.tsx` (`<HandleSSOCallback />`). `HandleSSOCallback` has no branch for a cancelled or failed provider (the attempt stays `needs_identifier` with `firstFactorVerification.error`, e.g. `oauth_access_denied`) and would spin forever. So the page watches for that error, keeps its message in memory (`setOAuthFailure`, `src/lib/auth.ts`), calls `signIn.reset()` (Clerk otherwise keeps the failed attempt across reloads), and returns to the screen that started it (`OAuthButtons` passes `?from=sign-in|sign-up`). `OAuthButtons` there shows the message once (`peekOAuthFailure`, cleared on mount), so a reload starts clean.
 - Every finished flow calls `finalize({ navigate: navigateHome })` (`src/lib/auth.ts`).
 - Access: `/` is public; `/sign-in`, `/sign-up`, `/forgot-password` and `/sso-callback` are for signed-out visitors only (`src/proxy.ts` redirects signed-in users to `/`); everything else is signed-in only. That last rule is enforced per resource, not in the proxy (Clerk deprecated `createRouteMatcher`): every page, layout, route handler and server action outside the public folders starts with `await auth.protect()` (from `@clerk/nextjs/server`). The `@clerk/next/require-auth-protection` lint rule (`oxlint.config.mts`) fails `bun run lint` when one doesn't; new public folders go in its `public` list.
 - `ClerkProvider` (in `src/app/layout.tsx`) uses the shadcn theme from `@clerk/ui`, so `UserButton` and other Clerk widgets match the palette.
+
+## API (oRPC)
+
+The API is **oRPC v2** (`2.0.0-beta.43`, pinned) behind two Next.js route handlers. **Every procedure needs a signed-in Clerk user**; there are no public endpoints. All server code lives in `src/server/`; each feature is one folder in `src/server/modules/`.
+
+```
+src/
+├── app/api/
+│   ├── rpc/[[...rest]]/route.ts   # wiring: rpcHandler (typed client transport) at /api/rpc
+│   └── [[...rest]]/route.ts       # wiring: openapiHandler (REST, /api/spec.json, /api/docs) at /api
+├── lib/
+│   ├── orpc.ts                    # `api` for Client Components: RPCLink to /api/rpc with batching
+│   └── orpc.server.ts             # `api` for server code (RSC, Server Functions): in-process, request headers
+└── server/
+    ├── orpc.ts                    # Context type, protectedOS (the only procedure builder)
+    ├── errors.ts                  # defineError(), ERROR_STATUSES, shared error classes
+    ├── router.ts                  # root router { session }, AppRouter type
+    ├── handlers.ts                # RPCHandler + OpenAPIHandler wiring (batch, CSRF, coercion, docs)
+    ├── core/
+    │   ├── require-auth.ts        # requireAuth: Clerk auth() → context.auth, else typed 401
+    │   ├── declared-errors.ts     # declaredErrorsOnly middleware + declaredErrorsPlugin (undeclared → typed 500, bad decode → 400)
+    │   ├── input-validation.ts    # inputValidation middleware (422 + prettified issues)
+    │   └── openapi.ts             # OpenAPI generator, error body schemas, Clerk security schemes
+    └── modules/<name>/
+        ├── <name>.router.ts       # required: procedures
+        ├── <name>.schemas.ts      # required: Zod input/output schemas + z.infer types (Zod-only imports)
+        ├── <name>.errors.ts       # module error classes
+        ├── <name>.service.ts      # optional: logic + DB, no oRPC imports
+        └── <name>.constants.ts    # optional: CONST_CASE tunables; no `env` (schemas import it)
+```
+
+- **Procedure = one chain:** `protectedOS.meta(openapi({ method, path, summary, tags, successStatus? })).use(inputValidation).input(schema).output(schema).errors({...}).handler(({ context, input, errors }) => ...)`. Register it in the module's router object and the module in `server/router.ts`. `src/server/modules/session/` is the reference module (`GET /api/session` → the caller's Clerk `userId` and `sessionId`).
+- **Auth:** `protectedOS` runs `requireAuth` (`core/require-auth.ts`), which calls Clerk's `auth()` and puts `{ userId, sessionId }` on `context.auth`; a signed-out or invalid request gets a typed `UNAUTHORIZED` (401). Clerk reads the `__session` cookie (browser) or an `Authorization: Bearer <session token>` header (`getToken()`; other clients), so both transports and the in-process server client behave the same. `clerkMiddleware` in `src/proxy.ts` must keep matching `/api` (its `config.matcher` does) for `auth()` to work there.
+- **Guarding "every API is protected":** `baseOS` isn't exported, and lint bans importing `os` from `@orpc/server` outside `src/server/orpc.ts` and `src/server/core/` (`no-restricted-imports` in `oxlint.config.mts`), so a module can only build on `protectedOS`. `src/app/api/**` is in the Clerk rule's `public` list because its routes delegate to oRPC rather than calling `auth.protect()` (which would answer an untyped 404).
+- **Errors are classes** made with `defineError(code, { message, data?, status? })` from `server/errors.ts` and thrown with `throw new X()`:
+  - Standard HTTP codes (`BAD_REQUEST`, `NOT_FOUND`, `UNPROCESSABLE_CONTENT`, …) are only for the shared classes in `server/errors.ts`; they take their status from oRPC's `COMMON_ERROR_STATUS_MAP`.
+  - **Module errors always use module-prefixed `SCREAMING_SNAKE` codes** (`RUNS_NOT_FOUND`) and declare a standard HTTP status next to them: `defineError("RUNS_NOT_FOUND", { status: 404, message, data? })`. A custom code without `status`, a lowercase code, a non-HTTP status (e.g. 418), or `status` on a standard code all fail to compile; reusing a custom code with a different status throws at startup.
+  - `defineError` registers custom statuses in `ERROR_STATUSES`, which both handlers and the OpenAPI generator use. There is no hand-maintained status map.
+  - Shared classes live in `server/errors.ts` (`BadRequest`, `InternalServerError`, `InputValidationFailed`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`); module classes in `<name>.errors.ts`.
+  - Declare every class a procedure throws: `.errors({ [RunsNotFound.code]: RunsNotFound })`.
+  - Importing `error` or `ORPCError` from `@orpc/server` is lint-banned outside `server/errors.ts` and `server/core/`, so every error goes through `defineError`.
+- **Guarantee: a matched procedure only ever returns errors it declares.**
+  - Every procedure declares `BadRequest` (400), `InternalServerError` (500), `Unauthorized` (401) and `Forbidden` (403).
+  - The `declaredErrorsOnly` middleware (procedure level, so in-process server calls too) and the `declaredErrorsPlugin` handler interceptor (decode + plugins) turn anything undeclared into a logged (`[orpc] <path> failed`), typed `InternalServerError`.
+  - Malformed bodies/queries (failed decoding) become a typed `BadRequest`.
+  - `.use(inputValidation)` before `.input(schema)` adds 422 `InputValidationFailed` (code `UNPROCESSABLE_CONTENT`, `z.prettifyError` message + `data.issues`) only to endpoints with input.
+  - `Forbidden` comes from `GetMethodCsrfProtectionHandlerPlugin` (Clerk's cookie is `SameSite=Lax`, so it blocks cross-site GET navigations); it's listed before `declaredErrorsPlugin` in `handlers.ts` so the boundary wraps it and the 403 stays typed.
+  - Unknown routes return `{ defined: false, code: "NOT_FOUND" }` from the route handlers (no procedure to declare against).
+- **Clients:**
+  - Client Components: `import { api } from "@/lib/orpc"` (batched over `/api/rpc`). It throws if it ever runs on the server.
+  - Server Components, Server Functions, route handlers: `import { api } from "@/lib/orpc.server"` (`server-only`). It skips HTTP but runs the same middleware chain, Clerk `auth()` included.
+  - Handle errors with `safe(...)` from `@orpc/client` + `isDefinedError(error) && error.code === "RUNS_NOT_FOUND"` for typed `error.data`.
+- **Client-importable server files:** only `src/server/**/*.schemas.ts` and `*.errors.ts` (and `server/errors.ts`). `server/orpc.ts`, `server/handlers.ts` and `lib/orpc.server.ts` import `server-only`, so pulling them into a Client Component fails the build.
+- **Docs** (non-production): `/api/docs` (Scalar), `/api/spec.json` (OpenAPI), generated from the router. The docs page itself is public; calls made from it still need a session.
 
 ## Database types
 

@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import Link from "next/link";
 import { useId } from "react";
 import type * as React from "react";
 
@@ -45,4 +46,24 @@ function LogoMark({ className, ...props }: React.ComponentProps<"svg">) {
   );
 }
 
-export { LogoMark };
+// The mark and wordmark, linking home.
+function Logo({
+  className,
+  ...props
+}: Omit<React.ComponentProps<typeof Link>, "children" | "href">) {
+  return (
+    <Link
+      href="/"
+      className={cn(
+        "inline-flex w-fit items-center gap-2.5 rounded-lg font-heading text-xl font-bold tracking-tight outline-ring focus-visible:outline-2 focus-visible:outline-offset-4",
+        className
+      )}
+      {...props}
+    >
+      <LogoMark className="size-9" />
+      Handoff
+    </Link>
+  );
+}
+
+export { Logo, LogoMark };

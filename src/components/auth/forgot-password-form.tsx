@@ -7,6 +7,7 @@ import { Form } from "react-aria-components";
 import { AuthLink } from "@/components/auth/auth-link";
 import { AuthStep } from "@/components/auth/auth-step";
 import { CodeField } from "@/components/auth/code-field";
+import { useSubmitting } from "@/components/auth/use-submitting";
 import { Button } from "@/components/ui/button";
 import {
   FormAlert,
@@ -28,6 +29,7 @@ export function ForgotPasswordForm() {
   const [password, setPassword] = useState("");
   const [step, setStep] = useState<Step>("email");
 
+  const { isSubmitting, submit } = useSubmitting();
   const isPending = fetchStatus === "fetching";
   const globalError = errors.global?.[0]?.message;
   const emailError = errors.fields.identifier?.message;
@@ -38,7 +40,7 @@ export function ForgotPasswordForm() {
     const created = await signIn.create({ identifier: email });
 
     if (created.error !== null) {
-      return;
+      return false;
     }
 
     const sent = await signIn.resetPasswordEmailCode.sendCode();
@@ -46,6 +48,8 @@ export function ForgotPasswordForm() {
     if (sent.error === null) {
       setStep("code");
     }
+
+    return false;
   }
 
   async function verifyCode() {
@@ -55,12 +59,17 @@ export function ForgotPasswordForm() {
       setCode("");
       setStep("password");
     }
+
+    return false;
   }
 
   async function finish() {
-    if (signIn.status === "complete") {
-      await signIn.finalize({ navigate: navigateHome });
+    if (signIn.status !== "complete") {
+      return false;
     }
+
+    const finalized = await signIn.finalize({ navigate: navigateHome });
+    return finalized.error === null;
   }
 
   async function submitPassword() {
@@ -70,7 +79,7 @@ export function ForgotPasswordForm() {
     });
 
     if (error !== null) {
-      return;
+      return false;
     }
 
     if (
@@ -83,18 +92,15 @@ export function ForgotPasswordForm() {
         setStep("device");
       }
 
-      return;
+      return false;
     }
 
-    await finish();
+    return await finish();
   }
 
   async function verifyDevice() {
     const { error } = await signIn.mfa.verifyEmailCode({ code });
-
-    if (error === null) {
-      await finish();
-    }
+    return error === null && (await finish());
   }
 
   const footer = (
@@ -117,7 +123,7 @@ export function ForgotPasswordForm() {
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void submitPassword();
+            void submit(submitPassword);
           }}
           validationBehavior="aria"
         >
@@ -136,7 +142,12 @@ export function ForgotPasswordForm() {
             <FormError>{passwordError}</FormError>
           </FormField>
 
-          <Button isLoading={isPending} size="lg" type="submit">
+          <Button
+            isDisabled={isPending}
+            isLoading={isSubmitting}
+            size="lg"
+            type="submit"
+          >
             Reset password
           </Button>
         </Form>
@@ -161,7 +172,7 @@ export function ForgotPasswordForm() {
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void (isDevice ? verifyDevice() : verifyCode());
+            void submit(isDevice ? verifyDevice : verifyCode);
           }}
           validationBehavior="aria"
         >
@@ -174,7 +185,12 @@ export function ForgotPasswordForm() {
             value={code}
           />
 
-          <Button isLoading={isPending} size="lg" type="submit">
+          <Button
+            isDisabled={isPending}
+            isLoading={isSubmitting}
+            size="lg"
+            type="submit"
+          >
             Verify
           </Button>
 
@@ -206,7 +222,7 @@ export function ForgotPasswordForm() {
         className="flex flex-col gap-5"
         onSubmit={(event) => {
           event.preventDefault();
-          void sendCode();
+          void submit(sendCode);
         }}
         validationBehavior="aria"
       >
@@ -226,7 +242,12 @@ export function ForgotPasswordForm() {
           <FormError>{emailError}</FormError>
         </FormField>
 
-        <Button isLoading={isPending} size="lg" type="submit">
+        <Button
+          isDisabled={isPending}
+          isLoading={isSubmitting}
+          size="lg"
+          type="submit"
+        >
           Send reset code
         </Button>
       </Form>

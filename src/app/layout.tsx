@@ -1,10 +1,10 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
 import type { Metadata } from "next";
-import { ThemeProvider } from "next-themes";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 
 import "@/app/globals.css";
+import { Providers } from "@/components/providers";
 import { env } from "@/env";
 
 const bricolageGrotesque = Bricolage_Grotesque({
@@ -37,9 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
         >
-          <ThemeProvider attribute="class" disableTransitionOnChange>
-            {children}
-          </ThemeProvider>
+          <Providers>{children}</Providers>
         </ClerkProvider>
       </body>
     </html>

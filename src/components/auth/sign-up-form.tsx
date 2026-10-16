@@ -8,6 +8,7 @@ import { AuthLink } from "@/components/auth/auth-link";
 import { AuthStep } from "@/components/auth/auth-step";
 import { CodeField } from "@/components/auth/code-field";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { useSubmitting } from "@/components/auth/use-submitting";
 import { Button } from "@/components/ui/button";
 import {
   FormAlert,
@@ -25,6 +26,7 @@ export function SignUpForm() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
 
+  const { isSubmitting, submit } = useSubmitting();
   const isPending = fetchStatus === "fetching";
   const globalError = errors.global?.[0]?.message;
   const emailError = errors.fields.emailAddress?.message;
@@ -40,14 +42,19 @@ export function SignUpForm() {
     if (error === null) {
       await signUp.verifications.sendEmailCode();
     }
+
+    return false;
   }
 
   async function submitCode() {
     const { error } = await signUp.verifications.verifyEmailCode({ code });
 
-    if (error === null && signUp.status === "complete") {
-      await signUp.finalize({ navigate: navigateHome });
+    if (error !== null || signUp.status !== "complete") {
+      return false;
     }
+
+    const finalized = await signUp.finalize({ navigate: navigateHome });
+    return finalized.error === null;
   }
 
   const footer = (
@@ -67,7 +74,7 @@ export function SignUpForm() {
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void submitCode();
+            void submit(submitCode);
           }}
           validationBehavior="aria"
         >
@@ -82,7 +89,12 @@ export function SignUpForm() {
             value={code}
           />
 
-          <Button isLoading={isPending} size="lg" type="submit">
+          <Button
+            isDisabled={isPending}
+            isLoading={isSubmitting}
+            size="lg"
+            type="submit"
+          >
             Verify
           </Button>
 
@@ -115,7 +127,7 @@ export function SignUpForm() {
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void submitPassword();
+            void submit(submitPassword);
           }}
           validationBehavior="aria"
         >
@@ -151,7 +163,12 @@ export function SignUpForm() {
           {/* Clerk's bot protection renders its challenge here. */}
           <div className="empty:hidden" id="clerk-captcha" />
 
-          <Button isLoading={isPending} size="lg" type="submit">
+          <Button
+            isDisabled={isPending}
+            isLoading={isSubmitting}
+            size="lg"
+            type="submit"
+          >
             Create account
           </Button>
         </Form>

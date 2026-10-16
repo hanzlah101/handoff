@@ -3,11 +3,13 @@
 import { Show, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 
 function AuthControls() {
   return (
     <div className="flex items-center gap-2">
+      <ThemeToggle />
       <Show when="signed-out">
         <Link href="/sign-in" className={buttonVariants({ variant: "ghost" })}>
           Sign in
@@ -17,6 +19,9 @@ function AuthControls() {
         </Link>
       </Show>
       <Show when="signed-in">
+        <Link href="/projects" className={buttonVariants({ variant: "ghost" })}>
+          Projects
+        </Link>
         <UserButton />
       </Show>
     </div>

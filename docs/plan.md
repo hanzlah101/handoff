@@ -16,7 +16,7 @@ Theme fit (Human + AI: Better Together): the handoff is the product, not a featu
 2. A workflow is a graph of steps edited on a canvas and saved automatically.
 3. Running a workflow drives a real cloud browser; every step's status and output is visible live.
 4. **Human handoff:** a blocked or failed browser step pauses the run, shows the live browser, and resumes on "Hand back". Only a step that is still blocked after the human's help fails the run.
-5. Every mutation in the UI is **optimistic**: the screen updates at once and rolls back with a clear error if the server refuses.
+5. Every mutation shows a clear pending state and updates the screen from the server's response (no refetch); errors stay visible where the action was taken.
 6. Deployed on Alternate Clouds and reliable for a 6-minute live demo.
 
 ### Non-goals (for now)
@@ -56,7 +56,7 @@ After sign-in, `navigateHome` goes to `/projects` instead of `/`.
 - Fields: name (1–80), `graph` (nodes + edges, JSON), owning project.
 - New workflow: generated name ("Untitled workflow 3"), a graph with only the Start node.
 - Editor layout: canvas (top-left), run console (bottom-left, resizable), inspector (right, resizable).
-- **Autosave:** graph changes are debounced (800 ms) and sent with `workflows.saveGraph`; the toolbar shows Saving… / Saved / Couldn't save (retry). Save is optimistic (§8).
+- **Autosave:** graph changes are debounced (800 ms) and sent with `workflows.saveGraph`; the toolbar shows Saving… / Saved / Couldn't save (retry); see §8.
 - Validation before a run (server-side, same function the client uses for hints): exactly one Start node, no cycles, every connected node has its required fields, every `{{ nodeId.path }}` reference points to an upstream node.
 
 ### 2.4 Nodes
@@ -197,7 +197,7 @@ All procedures are signed-in only and scope every query by `context.auth.userId`
 | `runs.liveView` | GET /runs/{id}/live-view | { runId } → { url } | RUNS_NOT_FOUND 404, RUNS_NOT_WAITING 409 |
 | `runs.resume` | POST /runs/{id}/resume (204) | { runId, approved?, note? } | RUNS_NOT_FOUND 404, RUNS_NOT_WAITING 409 |
 
-- `create` accepts an optional client-generated `id` (uuid) so optimistic rows keep their id after the server confirms (§8). A duplicate id from another user answers `CONFLICT`.
+- `create` accepts an optional client-generated `id` (uuid) so a retried create is idempotent (same id returns the same row). A duplicate id from another user answers `CONFLICT`.
 - `graph` is validated with a Zod schema (node types from the registry, string field values, edges referencing existing nodes); semantic checks (cycles, required fields) run at `runs.start` and return `WORKFLOWS_INVALID_GRAPH` with every problem so the editor can mark the nodes.
 - The run task never trusts the client: it reloads the graph from the database by `workflowId` + `userId`.
 
@@ -212,28 +212,21 @@ All procedures are signed-in only and scope every query by `context.auth.userId`
 
 ---
 
-## 8. Optimistic updates
+## 8. Mutation updates
 
-Every mutation updates the cache first, then reconciles. One shared pattern per mutation:
+Decision (changed from optimistic updates): mutations show a pending state and update the cache from the server's response.
 
-1. `onMutate`: `cancelQueries` for the affected keys, snapshot them, write the optimistic value, return the snapshot.
-2. `onError`: restore the snapshot, show a toast with the typed error's message.
-3. `onSettled`: `invalidateQueries` for the affected keys (server truth wins).
+1. While the request runs, the dialog stays open with a spinner on its action; it can't be dismissed.
+2. `onSuccess`: write the returned row into the cached list with `setQueryData` (no refetch), then mark the list stale (`invalidateQueries` with `refetchType: "none"`) so the next mount or focus re-syncs.
+3. On error: the dialog stays open and shows the typed error's message; nothing in the list changed.
 
-| Mutation | Optimistic change | Rollback / reconcile notes |
-| --- | --- | --- |
-| Create project | Prepend `{ id: crypto.randomUUID(), name, … }` to the list; navigate to it at once | Same id is sent to the server, so the row and URL never change. On error: remove + navigate back |
-| Rename project | Patch name in list (and detail) | Restore old name |
-| Delete project | Remove from list; navigate to `/projects` if open | Re-insert at its old index |
-| Create workflow | Prepend to the project's workflow list with a client id; open the editor | As create project |
-| Rename workflow | Patch name in list and editor header | Restore |
-| Delete workflow | Remove from list | Re-insert |
-| Save graph (autosave) | The canvas is the source of truth; the cache entry is patched with the new graph and `Saving…` shows | On error: keep the canvas as is, mark "Couldn't save", retry with the latest graph (never roll the canvas back under the user's cursor). Saves are serialised: a newer graph replaces a queued one |
-| Start run | Console switches to the new run with all steps `pending` | On error (invalid graph, already active): clear it and mark the offending nodes |
-| Hand back / Approve / Reject | Step shows `running` immediately, "Your turn" panel closes | On error: reopen the panel with the message |
-| Stop run | Run shows `cancelled`, Stop becomes Run | On error: restore the live state |
-
-Optimistic UI must never hide a failure: every rollback is visible (toast + restored state), and lists always reconcile with the server on settle.
+| Mutation | On success |
+| --- | --- |
+| Create project / workflow | Insert the returned row at the top of its list; close the dialog |
+| Rename project / workflow | Replace the row with the returned one (moves to the top: fresh `updatedAt`) |
+| Delete project / workflow | Remove the row |
+| Save graph (autosave) | Patch the cached workflow's `updatedAt`; the canvas stays the source of truth ("Saving…" → "Saved", "Couldn't save" + retry on error) |
+| Start run / Hand back / Stop | Reflect the returned run state; the realtime subscription takes over |
 
 ---
 
@@ -279,7 +272,7 @@ Optimistic UI must never hide a failure: every rollback is visible (toast + rest
 | By | Milestone | Done when |
 | --- | --- | --- |
 | 03:30 | **Deploy first** | Dockerfile (standalone), Postgres provisioned, app live on Alternate Clouds with sign-in working; hosting caveat (§4) confirmed with organizers |
-| 05:00 | Projects + workflows | Schema + migrations, `projects.*` / `workflows.*`, TanStack Query + optimistic list mutations, `/projects` and `/projects/[id]` |
+| 05:00 | Projects + workflows | Schema + migrations, `projects.*` / `workflows.*`, TanStack Query mutations that update the cache from responses, `/projects` and `/projects/[id]` |
 | 07:00 | Editor + runs | Canvas, inspector, autosave, node registry and executors, `run-workflow` task, live step status in console |
 | 09:00 | **Human handoff** | Detection, `needs_human` step, live view panel, Hand back, Ask human node, timeout |
 | 10:00 | Demo flow + polish | A public demo site flow: open page → hit login → hand off → extract → Ask human → send email; error states checked |

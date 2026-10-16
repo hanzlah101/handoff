@@ -90,7 +90,9 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ className, size, variant }))}
-      isDisabled={isDisabled || isLoading}
+      // Pending, not disabled: React Aria ignores presses but keeps focus on
+      // the button (a disabled one drops focus to <body>, outside any dialog).
+      isDisabled={isDisabled}
       isPending={isLoading}
       {...props}
     >

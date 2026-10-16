@@ -14,7 +14,8 @@ function isGuestPath(pathname: string) {
   );
 }
 
-// Signed-in users have no business on the auth pages, so send them home. This
+// Signed-in users have no business on the auth pages, so send them to their
+// projects. This
 // is only a redirect: each protected page, route handler and server action
 // checks auth itself with `await auth.protect()` (enforced by the
 // @clerk/next/require-auth-protection lint rule).
@@ -27,7 +28,7 @@ export default clerkMiddleware(
     const { isAuthenticated } = await auth();
 
     return isAuthenticated
-      ? NextResponse.redirect(new URL("/", request.url))
+      ? NextResponse.redirect(new URL("/projects", request.url))
       : NextResponse.next();
   },
   {

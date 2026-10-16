@@ -1,11 +1,11 @@
 import type { SetActiveNavigate } from "@clerk/nextjs/types";
 
-// After sign-in or sign-up: a full page load, so the server and proxy see the
-// new session straight away.
+// After sign-in or sign-up: a full page load into the app, so the server and
+// proxy see the new session straight away.
 export function navigateHome({
   decorateUrl,
 }: Parameters<SetActiveNavigate>[0]) {
-  window.location.assign(decorateUrl("/"));
+  window.location.assign(decorateUrl("/projects"));
 }
 
 // Why the last Google/GitHub attempt failed or was cancelled: set by the SSO

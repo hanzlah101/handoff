@@ -17,6 +17,9 @@ function AuthControls() {
         </Link>
       </Show>
       <Show when="signed-in">
+        <Link href="/projects" className={buttonVariants({ variant: "ghost" })}>
+          Projects
+        </Link>
         <UserButton />
       </Show>
     </div>

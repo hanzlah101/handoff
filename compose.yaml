@@ -1,0 +1,25 @@
+# Local Postgres for development: `bun run db:up`, then `bun run db:migrate`.
+# Matches DATABASE_URL in .env.example.
+services:
+  postgres:
+    image: postgres:18.2-alpine3.23
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: handoff
+    ports:
+      # localhost only.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/18/docker, so
+      # the volume mounts the parent (not /var/lib/postgresql/data).
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d handoff"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres-data:

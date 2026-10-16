@@ -8,6 +8,7 @@ import { AuthLink, AuthLinkButton } from "@/components/auth/auth-link";
 import { AuthStep } from "@/components/auth/auth-step";
 import { CodeField } from "@/components/auth/code-field";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { useSubmitting } from "@/components/auth/use-submitting";
 import { Button } from "@/components/ui/button";
 import {
   FormAlert,
@@ -26,22 +27,26 @@ export function SignInForm() {
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"code" | "password">("password");
 
+  const { isSubmitting, submit } = useSubmitting();
   const isPending = fetchStatus === "fetching";
   const globalError = errors.global?.[0]?.message;
   const emailError = errors.fields.identifier?.message;
   const passwordError = errors.fields.password?.message;
 
   async function finish() {
-    if (signIn.status === "complete") {
-      await signIn.finalize({ navigate: navigateHome });
+    if (signIn.status !== "complete") {
+      return false;
     }
+
+    const { error } = await signIn.finalize({ navigate: navigateHome });
+    return error === null;
   }
 
   async function submitPassword() {
     const { error } = await signIn.password({ emailAddress: email, password });
 
     if (error !== null) {
-      return;
+      return false;
     }
 
     // A new device, or an account with two-step verification: confirm with a
@@ -56,18 +61,15 @@ export function SignInForm() {
         setStep("code");
       }
 
-      return;
+      return false;
     }
 
-    await finish();
+    return await finish();
   }
 
   async function submitCode() {
     const { error } = await signIn.mfa.verifyEmailCode({ code });
-
-    if (error === null) {
-      await finish();
-    }
+    return error === null && (await finish());
   }
 
   async function startOver() {
@@ -98,7 +100,7 @@ export function SignInForm() {
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void submitCode();
+            void submit(submitCode);
           }}
           validationBehavior="aria"
         >
@@ -113,7 +115,12 @@ export function SignInForm() {
             value={code}
           />
 
-          <Button isLoading={isPending} size="lg" type="submit">
+          <Button
+            isDisabled={isPending}
+            isLoading={isSubmitting}
+            size="lg"
+            type="submit"
+          >
             Verify
           </Button>
 
@@ -150,7 +157,7 @@ export function SignInForm() {
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void submitPassword();
+            void submit(submitPassword);
           }}
           validationBehavior="aria"
         >
@@ -188,7 +195,12 @@ export function SignInForm() {
             <FormError>{passwordError}</FormError>
           </FormField>
 
-          <Button isLoading={isPending} size="lg" type="submit">
+          <Button
+            isDisabled={isPending}
+            isLoading={isSubmitting}
+            size="lg"
+            type="submit"
+          >
             Sign in
           </Button>
         </Form>

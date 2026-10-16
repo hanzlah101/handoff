@@ -23,8 +23,8 @@ const projectNameSchema = z
 
 export const createProjectInputSchema = z
   .object({
-    // Optional client-generated id, so an optimistic row keeps its id (and
-    // URL) once the server confirms it.
+    // Optional client-generated id: resending a create with the same id
+    // returns the same project, so retries are safe.
     id: z.uuid().optional(),
     name: projectNameSchema,
   })

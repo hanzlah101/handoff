@@ -15,13 +15,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FormError, FormField, FormLabel } from "@/components/ui/form";
+import {
+  FormAlert,
+  FormError,
+  FormField,
+  FormLabel,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { errorMessage } from "@/lib/errors";
 import { PROJECT_NAME_MAX_LENGTH } from "@/server/modules/projects/projects.constants";
 import { createProjectInputSchema } from "@/server/modules/projects/projects.schemas";
 
-// `children` is the button that opens it. The dialog closes as soon as the
-// name is valid; the project appears optimistically (useCreateProject).
+// `children` is the button that opens it. The dialog stays open (and can't be
+// dismissed) while the project is created, then closes.
 export function CreateProjectDialog({
   children,
 }: {
@@ -31,14 +37,20 @@ export function CreateProjectDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState<string>();
+  // Success counts as busy too: the dialog closes from the success callback,
+  // one render after the mutation stops pending.
+  const isPending = createProject.isPending || createProject.isSuccess;
 
-  function openChange(open: boolean) {
-    setIsOpen(open);
+  // Reset on open, not on close, so the dialog fades out as it was.
+  function open() {
+    setName("");
+    setError(undefined);
+    createProject.reset();
+    setIsOpen(true);
+  }
 
-    if (!open) {
-      setName("");
-      setError(undefined);
-    }
+  function close() {
+    setIsOpen(false);
   }
 
   function submit() {
@@ -49,14 +61,22 @@ export function CreateProjectDialog({
       return;
     }
 
-    createProject.mutate({ id: crypto.randomUUID(), name: parsed.data.name });
-    openChange(false);
+    createProject.mutate(parsed.data, { onSuccess: close });
   }
 
   return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={openChange}>
+    <DialogTrigger
+      isOpen={isOpen}
+      onOpenChange={(isOpening) => {
+        if (isOpening) {
+          open();
+        } else if (!isPending) {
+          close();
+        }
+      }}
+    >
       {children}
-      <Dialog>
+      <Dialog isDismissable={!isPending} isKeyboardDismissDisabled={isPending}>
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>
@@ -73,9 +93,14 @@ export function CreateProjectDialog({
           }}
           validationBehavior="aria"
         >
+          {createProject.error === null ? null : (
+            <FormAlert>{errorMessage(createProject.error)}</FormAlert>
+          )}
+
           <FormField
             autoComplete="off"
             autoFocus
+            isReadOnly={isPending}
             isInvalid={error !== undefined}
             maxLength={PROJECT_NAME_MAX_LENGTH}
             onChange={(value) => {
@@ -90,8 +115,10 @@ export function CreateProjectDialog({
           </FormField>
 
           <DialogFooter>
-            <DialogClose>Cancel</DialogClose>
-            <Button type="submit">Create project</Button>
+            <DialogClose isDisabled={isPending}>Cancel</DialogClose>
+            <Button isLoading={isPending} type="submit">
+              Create project
+            </Button>
           </DialogFooter>
         </Form>
       </Dialog>

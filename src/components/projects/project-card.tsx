@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatRelativeTime } from "@/lib/format";
@@ -24,6 +23,9 @@ type Action = "delete" | "rename";
 
 export function ProjectCard({ project }: { project: Project }) {
   const [action, setAction] = useState<Action | null>(null);
+  // Bumped on each open: the dialogs remount (fresh form and mutation state)
+  // without resetting while they animate closed.
+  const [opening, setOpening] = useState(0);
 
   function openChange(target: Action) {
     return (isOpen: boolean) => {
@@ -63,6 +65,7 @@ export function ProjectCard({ project }: { project: Project }) {
         </Button>
         <DropdownMenu
           onAction={(key) => {
+            setOpening((count) => count + 1);
             setAction(key === "delete" ? "delete" : "rename");
           }}
         >
@@ -70,7 +73,6 @@ export function ProjectCard({ project }: { project: Project }) {
             <IconPencil />
             Rename
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem id="delete" variant="destructive">
             <IconTrash />
             Delete
@@ -79,11 +81,13 @@ export function ProjectCard({ project }: { project: Project }) {
       </DropdownMenuTrigger>
 
       <RenameProjectDialog
+        key={`rename-${opening}`}
         isOpen={action === "rename"}
         onOpenChange={openChange("rename")}
         project={project}
       />
       <DeleteProjectDialog
+        key={`delete-${opening}`}
         isOpen={action === "delete"}
         onOpenChange={openChange("delete")}
         project={project}

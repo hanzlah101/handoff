@@ -1,8 +1,9 @@
 "use client";
 
-import { IconTrashFilled } from "@tabler/icons-react";
+import { IconAlertCircleFilled, IconTrashFilled } from "@tabler/icons-react";
 
 import { useRemoveProject } from "@/components/projects/use-project-mutations";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,8 +14,10 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { errorMessage } from "@/lib/errors";
 import type { Project } from "@/server/modules/projects/projects.schemas";
 
+// Stays open (and can't be cancelled) while the project is deleted.
 export function DeleteProjectDialog({
   isOpen,
   onOpenChange,
@@ -25,9 +28,26 @@ export function DeleteProjectDialog({
   project: Pick<Project, "id" | "name">;
 }) {
   const removeProject = useRemoveProject();
+  // Success counts as busy too: the dialog closes from the success callback,
+  // one render after the mutation stops pending.
+  const isPending = removeProject.isPending || removeProject.isSuccess;
+
+  function close() {
+    onOpenChange(false);
+  }
 
   return (
-    <AlertDialog isOpen={isOpen} onOpenChange={onOpenChange}>
+    <AlertDialog
+      isKeyboardDismissDisabled={isPending}
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (open) {
+          onOpenChange(true);
+        } else if (!isPending) {
+          close();
+        }
+      }}
+    >
       <AlertDialogHeader>
         <AlertDialogMedia variant="destructive">
           <IconTrashFilled />
@@ -38,12 +58,18 @@ export function DeleteProjectDialog({
           be undone.
         </AlertDialogDescription>
       </AlertDialogHeader>
+      {removeProject.error === null ? null : (
+        <Alert variant="destructive">
+          <IconAlertCircleFilled />
+          <AlertTitle>{errorMessage(removeProject.error)}</AlertTitle>
+        </Alert>
+      )}
       <AlertDialogFooter>
-        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogCancel isDisabled={isPending}>Cancel</AlertDialogCancel>
         <AlertDialogAction
+          isLoading={isPending}
           onPress={() => {
-            removeProject.mutate({ id: project.id });
-            onOpenChange(false);
+            removeProject.mutate({ id: project.id }, { onSuccess: close });
           }}
           variant="destructive"
         >

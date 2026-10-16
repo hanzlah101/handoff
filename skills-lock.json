@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "skills": {
+    "browse": {
+      "source": "browserbase/stagehand",
+      "sourceType": "github",
+      "skillPath": "packages/cli/skills/browse/SKILL.md",
+      "computedHash": "cce5c3a86cb0fafad16dd9570c294f4b859db96b45b787ebde236c9460bdd3d4"
+    },
+    "clerk": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk/SKILL.md",
+      "computedHash": "61e33bfbc058da6c5924bfca7b2fedc57adf83d79a08014b15625c4b62b344e1"
+    },
+    "clerk-backend-api": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk-backend-api/SKILL.md",
+      "computedHash": "f3204ff593e5c2a9db60380464a79442d97f028c5dc4f8e66f853dc536ad78df"
+    },
+    "clerk-cli": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk-cli/SKILL.md",
+      "computedHash": "5a29712cce41e427fce609e0717a7d1868baf276014711f58a3f8e0fddde9006"
+    },
+    "clerk-custom-ui": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk-custom-ui/SKILL.md",
+      "computedHash": "b29bb99ebc8da0712029f8f534f991e0a552ba62c2eff266daeda0ce17c284d9"
+    },
+    "clerk-nextjs-patterns": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk-nextjs-patterns/SKILL.md",
+      "computedHash": "72c949607a371a463e5a8bbce4d47d58f35bf6d8c4e84b79701c378344b465e4"
+    },
+    "clerk-setup": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk-setup/SKILL.md",
+      "computedHash": "211c3359cdfc488090eb356283106d510a5c75568eea72d3158f43c12ea28ec7"
+    },
+    "clerk-testing": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/clerk-testing/SKILL.md",
+      "computedHash": "2e2172e0ef81c58cec2bdb7ff5edefbd1ba424e9fca931e0cb80a1bd8bfd4e80"
+    },
+    "email-best-practices": {
+      "source": "resend/resend-skills",
+      "sourceType": "github",
+      "skillPath": "skills/email-best-practices/SKILL.md",
+      "computedHash": "4c26ca203af6b3df259621544b09a9b28183b9ead10897b7315225e87dd012d5"
+    },
+    "resend": {
+      "source": "resend/resend-skills",
+      "sourceType": "github",
+      "skillPath": "skills/resend/SKILL.md",
+      "computedHash": "a0d7f7687d173e0e34deaea9ea9f1cd47408875b97e7a9bfe966872131d105c2"
+    },
+    "resend-cli": {
+      "source": "resend/resend-skills",
+      "sourceType": "github",
+      "skillPath": "skills/resend-cli/SKILL.md",
+      "computedHash": "32c729456e8b6384e7d581d3aef289c4755cb85ba44c963137cc41531506023c"
+    },
+    "trigger-authoring-chat-agent": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-authoring-chat-agent/SKILL.md",
+      "computedHash": "53627bf05394f5767859a8efd2baeb45ae9aef86b74bc3326a0227ff53df840f"
+    },
+    "trigger-chat-agent-advanced": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-chat-agent-advanced/SKILL.md",
+      "computedHash": "8bc6e228ee2d0b7d6d93e9e0db7696fa57b914f3ac1d371cb74f9787315eba34"
+    },
+    "trigger-cost-savings": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-cost-savings/SKILL.md",
+      "computedHash": "ad30d5147201b25597913a669e7e87abee7356328b66838498a8342b214f6ec9"
+    },
+    "trigger-realtime": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-realtime/SKILL.md",
+      "computedHash": "6b458605a5d696868d1db725a56c4994f7b624618b3bf368b96ad7d3a028e928"
+    },
+    "trigger-setup": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-setup/SKILL.md",
+      "computedHash": "d05b406ad44a0190208e6258525fd78c931cbcbb4ead4a5ec6fb82114fae7724"
+    },
+    "trigger-tasks": {
+      "source": "triggerdotdev/skills",
+      "sourceType": "github",
+      "skillPath": "trigger-tasks/SKILL.md",
+      "computedHash": "fc5371f0356358a13a07b8d5f72f7e537002d4b0c50f3d2dacd57d10a2163cfa"
+    }
+  }
+}

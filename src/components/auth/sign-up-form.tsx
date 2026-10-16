@@ -109,7 +109,7 @@ export function SignUpForm() {
       title="Create your account"
     >
       <div className="flex flex-col gap-5">
-        <OAuthButtons />
+        <OAuthButtons from="sign-up" />
 
         <Form
           className="flex flex-col gap-5"
